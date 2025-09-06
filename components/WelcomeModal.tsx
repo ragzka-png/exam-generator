@@ -54,7 +54,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
         <div className="my-6 border-t border-slate-700"></div>
         
         <blockquote className="text-gray-400 italic">
-          <p>"Every method is valid when it leads to the right result."</p>
+          <p>"kari ana sing gampang ngapain nggolet sing angel"</p>
         </blockquote>
 
         <button

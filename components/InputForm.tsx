@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { FormState, DifficultyRange } from '../types';
-import { MagicWandIcon, UploadIcon, FileTextIcon, TrashIcon, PlusIcon } from './icons';
+import { MagicWandIcon, UploadIcon, FileTextIcon, TrashIcon, PlusIcon, SpinnerIcon } from './icons';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source for pdf.js to enable PDF text extraction in the browser.
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.4.168/build/pdf.worker.mjs';
 
 interface InputFormProps {
   formState: FormState;
@@ -12,6 +16,7 @@ interface InputFormProps {
 export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, onSubmit, isLoading }) => {
   const [inputMode, setInputMode] = useState<'manual' | 'upload'>('manual');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [isFileProcessing, setIsFileProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const totalQuestions = formState.mcqCount + formState.essayCount;
@@ -56,29 +61,83 @@ export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, o
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    setFormState(prevState => ({
-      ...prevState,
-      [name]: type === 'number' ? Math.max(0, parseInt(value, 10) || 0) : value,
-    }));
+    if (name === 'sourceMaterial') {
+        setFormState(prevState => ({
+            ...prevState,
+            sourceFile: null,
+            [name]: value
+        }));
+        setFileName(null);
+    } else {
+        setFormState(prevState => ({
+          ...prevState,
+          [name]: type === 'number' ? Math.max(0, parseInt(value, 10) || 0) : value,
+        }));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        setFormState(prevState => ({
-          ...prevState,
-          sourceMaterial: text,
-        }));
-      };
-      reader.onerror = () => {
-        alert('Gagal membaca file.');
+    if (!file) return;
+
+    setIsFileProcessing(true);
+    setFileName(file.name);
+
+    try {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const dataUrl = reader.result as string;
+                const base64Data = dataUrl.split(',')[1];
+                setFormState(prevState => ({
+                    ...prevState,
+                    sourceMaterial: '',
+                    sourceFile: { data: base64Data, mimeType: file.type }
+                }));
+                setIsFileProcessing(false);
+            };
+            reader.readAsDataURL(file);
+        } else if (file.type === 'application/pdf') {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const arrayBuffer = event.target?.result as ArrayBuffer;
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+                        fullText += pageText + '\n';
+                    }
+                    setFormState(prevState => ({ ...prevState, sourceMaterial: fullText.trim(), sourceFile: null }));
+                } catch (pdfError) {
+                    console.error("Error processing PDF:", pdfError);
+                    alert('Gagal memproses file PDF.');
+                    handleClearFile();
+                } finally {
+                    setIsFileProcessing(false);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else if (file.type.startsWith('text/')) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target?.result as string;
+                setFormState(prevState => ({ ...prevState, sourceMaterial: text, sourceFile: null }));
+                setIsFileProcessing(false);
+            };
+            reader.readAsText(file);
+        } else {
+            alert('Tipe file tidak didukung. Silakan unggah file .txt, .pdf, atau gambar.');
+            handleClearFile();
+            setIsFileProcessing(false);
+        }
+    } catch (error) {
+        console.error("File handling error:", error);
+        alert('Terjadi kesalahan saat menangani file.');
         handleClearFile();
-      }
-      reader.readAsText(file);
+        setIsFileProcessing(false);
     }
   };
 
@@ -87,6 +146,7 @@ export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, o
     setFormState(prevState => ({
       ...prevState,
       sourceMaterial: '',
+      sourceFile: null
     }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -165,13 +225,16 @@ export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, o
           ) : (
             <div className="mt-2">{!fileName ? (
                 <div className="relative flex flex-col items-center justify-center w-full border-2 border-gray-600 border-dashed rounded-lg p-8 text-center hover:border-gray-500 transition-colors">
-                  <UploadIcon /><span className="mt-2 block text-sm font-semibold text-gray-300">Unggah file .txt</span><span className="mt-1 block text-xs text-gray-500">Dukungan untuk PDF/DOCX akan segera hadir.</span>
-                  <input ref={fileInputRef} type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} accept=".txt,text/plain" aria-label="File upload" />
+                  <UploadIcon /><span className="mt-2 block text-sm font-semibold text-gray-300">Unggah File</span><span className="mt-1 block text-xs text-gray-500">Mendukung .txt, .pdf, .jpg, .png, dll.</span>
+                  <input ref={fileInputRef} type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} accept=".txt,text/plain,application/pdf,image/*" aria-label="File upload" disabled={isFileProcessing} />
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-gray-700/50 border border-gray-600 rounded-md px-4 py-3 text-white">
-                  <div className="flex items-center gap-3"><FileTextIcon /><span className="text-sm font-medium">{fileName}</span></div>
-                  <button type="button" onClick={handleClearFile} className="p-1.5 rounded-full text-gray-400 hover:bg-slate-600 hover:text-red-400 transition-colors" aria-label="Hapus file"><TrashIcon /></button>
+                  <div className="flex items-center gap-3">
+                    {isFileProcessing ? <SpinnerIcon /> : <FileTextIcon />}
+                    <span className="text-sm font-medium">{fileName}</span>
+                  </div>
+                  <button type="button" onClick={handleClearFile} className="p-1.5 rounded-full text-gray-400 hover:bg-slate-600 hover:text-red-400 transition-colors" aria-label="Hapus file" disabled={isFileProcessing}><TrashIcon /></button>
                 </div>
               )}
             </div>
@@ -249,10 +312,10 @@ export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, o
        
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isFileProcessing}
           className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white font-bold py-3 px-4 rounded-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500"
         >
-          {isLoading ? 'Membuat Soal...' : <><MagicWandIcon /> Buat Soal Ujian</>}
+          {isLoading ? 'Membuat Soal...' : isFileProcessing ? 'Memproses File...' : <><MagicWandIcon /> Buat Soal Ujian</>}
         </button>
       </form>
     </div>

@@ -12,6 +12,7 @@ const App: React.FC = () => {
     subject: 'Sejarah Indonesia',
     topic: 'Proklamasi Kemerdekaan',
     sourceMaterial: 'Proklamasi Kemerdekaan Indonesia dilaksanakan pada hari Jumat, 17 Agustus 1945 tahun Masehi, atau tanggal 17 Agustus 2605 menurut tahun Jepang, yang dibacakan oleh Soekarno dengan didampingi oleh Drs. Mohammad Hatta di sebuah rumah hibah dari Faradj bin Said bin Awadh Martak di Jalan Pegangsaan Timur No. 56, Jakarta Pusat.',
+    sourceFile: null,
     mcqCount: 3,
     essayCount: 2,
     difficultyRanges: [

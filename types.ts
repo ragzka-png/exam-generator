@@ -8,6 +8,10 @@ export interface FormState {
   subject: string;
   topic: string;
   sourceMaterial: string;
+  sourceFile: {
+    data: string; // base64 encoded data (without data:mime/type;base64, prefix)
+    mimeType: string;
+  } | null;
   mcqCount: number;
   essayCount: number;
   difficultyRanges: DifficultyRange[];

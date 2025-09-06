@@ -3,15 +3,15 @@ import type { FormState, ExamData, Question, MCQ, Essay } from '../types';
 
 const getDifficultyInstruction = (difficulty: 'mudah' | 'sedang' | 'sulit'): string => {
   switch (difficulty) {
-    case 'mudah': return 'Fokus pada pertanyaan yang menguji ingatan akan fakta-fakta yang secara eksplisit disebutkan dalam teks.';
-    case 'sedang': return 'Buat pertanyaan yang membutuhkan pemahaman dan kemampuan untuk menyimpulkan informasi dari teks.';
-    case 'sulit': return 'Buat pertanyaan yang membutuhkan analisis, sintesis, atau evaluasi. Jawaban mungkin tidak ditemukan secara langsung dalam teks dan memerlukan pemikiran kritis yang mendalam.';
+    case 'mudah': return 'Fokus pada pertanyaan yang menguji ingatan akan fakta-fakta yang secara eksplisit disebutkan dalam sumber.';
+    case 'sedang': return 'Buat pertanyaan yang membutuhkan pemahaman dan kemampuan untuk menyimpulkan informasi dari sumber.';
+    case 'sulit': return 'Buat pertanyaan yang membutuhkan analisis, sintesis, atau evaluasi. Jawaban mungkin tidak ditemukan secara langsung dalam sumber dan memerlukan pemikiran kritis yang mendalam.';
     default: return '';
   }
 };
 
-const buildPrompt = (formState: FormState): { prompt: string, schema: any } => {
-  const { subject, topic, sourceMaterial, mcqCount, essayCount, difficultyRanges } = formState;
+const buildPromptAndSchema = (formState: FormState): { promptText: string, schema: any } => {
+  const { subject, topic, sourceMaterial, sourceFile, mcqCount, essayCount, difficultyRanges } = formState;
   const totalQuestions = mcqCount + essayCount;
 
   const difficultyDistribution = difficultyRanges.map((range, index) => {
@@ -20,27 +20,41 @@ const buildPrompt = (formState: FormState): { prompt: string, schema: any } => {
     return `- Soal nomor ${from} sampai ${range.to}: Tingkat Kesulitan **${capitalizedDifficulty}**. (${getDifficultyInstruction(range.difficulty)})`;
   }).join('\n');
 
-  const hasSourceMaterial = sourceMaterial && sourceMaterial.trim() !== '';
+  const hasTextSource = sourceMaterial && sourceMaterial.trim() !== '';
+  const hasFileSource = !!sourceFile;
+  const hasSource = hasTextSource || hasFileSource;
   const hasSubject = subject && subject.trim() !== '';
   const hasTopic = topic && topic.trim() !== '';
 
   let promptCore = '';
   let mainInstruction = '';
 
-  if (hasSubject && hasTopic && hasSourceMaterial) {
-    promptCore = `Anda adalah seorang ahli pembuat soal ujian yang sangat kreatif dan teliti. Tugas Anda adalah membuat soal ujian yang menggabungkan tiga elemen: Mata Pelajaran, Topik Pelajaran, dan Konteks/Tema dari Sumber Materi, lalu mengembalikan hasilnya dalam format JSON yang valid.`;
+  if (hasSubject && hasTopic && hasSource) {
+    promptCore = `Anda adalah seorang ahli pembuat soal ujian yang sangat kreatif dan teliti. Tugas Anda adalah membuat soal ujian yang menggabungkan tiga elemen: Mata Pelajaran, Topik Pelajaran, dan Konteks/Tema dari Sumber Materi (bisa berupa teks atau gambar), lalu mengembalikan hasilnya dalam format JSON yang valid.`;
     mainInstruction = `
 **Mata Pelajaran:** ${subject}
 **Topik Pelajaran:** ${topic}
-**Konteks/Tema dari Sumber Materi:**
+`;
+    if (hasTextSource) {
+      mainInstruction += `
+**Konteks/Tema dari Sumber Materi (Teks):**
 ---
 ${sourceMaterial}
 ---
-
+`;
+    } else if (hasFileSource) {
+        mainInstruction += `
+**Konteks/Tema dari Sumber Materi (Gambar):**
+---
+[Gambar dilampirkan dalam permintaan ini]
+---
+`;
+    }
+    mainInstruction += `
 **Instruksi Penting:**
 Buatlah total ${totalQuestions} soal (${mcqCount} soal pilihan ganda dan ${essayCount} soal essay).
 Soal-soal ini harus menguji pemahaman tentang **"${topic}"** dalam mata pelajaran **"${subject}"**.
-Gunakan informasi, karakter, atau skenario dari **Sumber Materi** sebagai latar belakang cerita atau konteks untuk setiap soal.
+Gunakan informasi dari **Sumber Materi** yang diberikan (teks atau gambar) sebagai latar belakang cerita, data, atau konteks visual untuk setiap soal.
 **JANGAN** hanya menanyakan fakta dari Sumber Materi. Gunakan Sumber Materi sebagai **INSPIRASI** untuk membuat soal yang relevan dengan Mata Pelajaran dan Topik.
 `;
   } else {
@@ -49,7 +63,7 @@ Gunakan informasi, karakter, atau skenario dari **Sumber Materi** sebagai latar 
 **Mata Pelajaran:** ${subject}
 **Topik Pelajaran:** ${topic}
 `;
-    if (hasSourceMaterial) {
+    if (hasTextSource) {
       mainInstruction += `
 **Sumber Materi:**
 ---
@@ -65,7 +79,7 @@ Buatlah total ${totalQuestions} soal (${mcqCount} soal pilihan ganda dan ${essay
     }
   }
 
-  const prompt = `
+  const promptText = `
 ${promptCore}
 
 ${mainInstruction}
@@ -124,7 +138,7 @@ Urutan soal harus ${mcqCount} soal pilihan ganda terlebih dahulu, baru kemudian 
      required: ["mcqs", "essays"]
   };
 
-  return { prompt, schema };
+  return { promptText, schema };
 };
 
 
@@ -134,12 +148,17 @@ export const generateExamQuestions = async (formState: FormState): Promise<ExamD
   }
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const { prompt, schema } = buildPrompt(formState);
+  const { promptText, schema } = buildPromptAndSchema(formState);
+  const { sourceFile } = formState;
+
+  const contents = sourceFile
+    ? { parts: [{ text: promptText }, { inlineData: { mimeType: sourceFile.mimeType, data: sourceFile.data } }] }
+    : promptText;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: contents,
       config: {
         responseMimeType: "application/json",
         responseSchema: schema,
@@ -175,7 +194,7 @@ export const regenerateSingleQuestion = async (
         throw new Error("API key is not configured.");
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const { subject, topic, sourceMaterial, difficultyRanges } = formState;
+    const { subject, topic, sourceMaterial, sourceFile, difficultyRanges } = formState;
     
     let questionDifficulty: 'mudah' | 'sedang' | 'sulit' = 'sedang';
     let currentFrom = 1;
@@ -190,19 +209,26 @@ export const regenerateSingleQuestion = async (
 
     const isMCQ = questionToReplace.type === 'mcq';
     
-    const hasSourceMaterial = sourceMaterial && sourceMaterial.trim() !== '';
+    const hasTextSource = sourceMaterial && sourceMaterial.trim() !== '';
+    const hasFileSource = !!sourceFile;
+    const hasSource = hasTextSource || hasFileSource;
     const hasSubject = subject && subject.trim() !== '';
     const hasTopic = topic && topic.trim() !== '';
 
     let mainInstruction = '';
 
-    if (hasSubject && hasTopic && hasSourceMaterial) {
+    if (hasSubject && hasTopic && hasSource) {
         mainInstruction = `
 Berdasarkan informasi berikut:
 - **Mata Pelajaran:** "${subject}"
 - **Topik Pelajaran:** "${topic}"
-- **Konteks/Tema dari Sumber Materi:** ${sourceMaterial}
-
+`;
+        if (hasTextSource) {
+            mainInstruction += `- **Konteks/Tema dari Sumber Materi (Teks):** ${sourceMaterial}\n`;
+        } else {
+            mainInstruction += `- **Konteks/Tema dari Sumber Materi (Gambar):** [Gambar dilampirkan]\n`;
+        }
+        mainInstruction += `
 Buatlah satu soal ${isMCQ ? 'pilihan ganda' : 'essay'} yang baru dan kreatif. Soal ini harus menguji pemahaman tentang topik dalam mata pelajaran yang diberikan, tetapi gunakan konteks dari sumber materi sebagai tema.`;
     } else {
         mainInstruction = `
@@ -234,7 +260,7 @@ ${sourceMaterial || 'Tidak ada materi sumber spesifik, gunakan pengetahuan umum 
 
     const schema = isMCQ ? mcqSchema : essaySchema;
 
-    const prompt = `
+    const promptText = `
 Anda adalah seorang ahli pembuat soal ujian.
 ${mainInstruction}
 
@@ -247,11 +273,15 @@ ${mainInstruction}
 - Kembalikan sebuah objek JSON tunggal yang valid dan sesuai dengan skema yang diberikan.
 - Jangan sertakan teks atau format markdown lain di luar objek JSON.
   `;
+  
+  const contents = sourceFile
+    ? { parts: [{ text: promptText }, { inlineData: { mimeType: sourceFile.mimeType, data: sourceFile.data } }] }
+    : promptText;
 
   try {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: prompt,
+        contents: contents,
         config: {
           responseMimeType: "application/json",
           responseSchema: schema,
