@@ -62,3 +62,9 @@ export const PlusIcon: React.FC = () => (
       <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
     </svg>
 );
+
+export const PdfIcon: React.FC = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20,2H8C6.9,2,6,2.9,6,4v12c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V4C22,2.9,21.1,2,20,2z M11,13.5c0,0.83-0.67,1.5-1.5,1.5 S8,14.33,8,13.5v-3C8,9.67,8.67,9,9.5,9S11,9.67,11,10.5V13.5z M16.5,15H12v-1.5h3.5c0.83,0,1.5-0.67,1.5-1.5s-0.67-1.5-1.5-1.5 H12V9h4.5c1.93,0,3.5,1.57,3.5,3.5S18.43,15,16.5,15z M4,6H2v14c0,1.1,0.9,2,2,2h14v-2H4V6z"/>
+  </svg>
+);

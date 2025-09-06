@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const handleRegenerateQuestion = async (question: Question, index: number) => {
       const questionNumber = question.type === 'mcq'
         ? index + 1
+        // For essay, the index is relative to the essays array, so we add the mcq count
         : formState.mcqCount + index + 1;
       
       const newQuestion = await regenerateSingleQuestion(formState, question, questionNumber);
@@ -96,6 +97,7 @@ const App: React.FC = () => {
               isLoading={isLoading}
             />
             <ExamDisplay
+              formState={formState}
               examData={generatedExam}
               isLoading={isLoading}
               error={error}

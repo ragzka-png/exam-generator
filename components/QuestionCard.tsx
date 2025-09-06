@@ -100,6 +100,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, onU
             })}
         </div>
     );
+    
+    const questionNumber = question.type === 'mcq' ? index + 1 : `Essay ${index + 1}`;
+
 
     if (isEditing) {
         return (

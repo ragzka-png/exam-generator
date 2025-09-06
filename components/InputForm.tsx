@@ -142,7 +142,7 @@ export const InputForm: React.FC<InputFormProps> = ({ formState, setFormState, o
   return (
     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-2xl border border-slate-700">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-blue-300">Parameter Ujian</h2>
+        <h2 className="text-2xl font-bold text-blue-300">Parameter Soal Ujian</h2>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-4">
         {/* Subject, Topic, Source Material inputs remain unchanged */}

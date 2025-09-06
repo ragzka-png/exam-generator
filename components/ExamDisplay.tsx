@@ -1,9 +1,12 @@
 import React from 'react';
-import { SpinnerIcon } from './icons';
-import type { ExamData, Question } from '../types';
+import { SpinnerIcon, PdfIcon } from './icons';
+import type { ExamData, Question, FormState } from '../types';
 import { QuestionCard } from './QuestionCard';
+import { exportToPdf } from '../utils/exportUtils';
+
 
 interface ExamDisplayProps {
+  formState: FormState;
   examData: ExamData | null;
   isLoading: boolean;
   error: string | null;
@@ -11,7 +14,14 @@ interface ExamDisplayProps {
   onRegenerateQuestion: (question: Question, index: number) => Promise<void>;
 }
 
-export const ExamDisplay: React.FC<ExamDisplayProps> = ({ examData, isLoading, error, onUpdateQuestion, onRegenerateQuestion }) => {
+export const ExamDisplay: React.FC<ExamDisplayProps> = ({ formState, examData, isLoading, error, onUpdateQuestion, onRegenerateQuestion }) => {
+  
+  const handleExportPdf = () => {
+    if (!examData) return;
+    const fileName = `Soal Ujian - ${formState.subject} - ${formState.topic}`;
+    exportToPdf(examData, fileName);
+  };
+  
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -38,6 +48,12 @@ export const ExamDisplay: React.FC<ExamDisplayProps> = ({ examData, isLoading, e
       const { mcqs, essays } = examData;
       return (
         <div>
+          <div className="flex justify-end items-center gap-3 mb-4 -mt-2">
+              <button onClick={handleExportPdf} className="flex items-center gap-2 text-sm bg-red-800/50 text-red-200 px-3 py-1.5 rounded-md hover:bg-red-700/60 transition-colors">
+                  <PdfIcon /> Ekspor ke PDF
+              </button>
+          </div>
+          
           {mcqs.length > 0 && (
             <section>
               <h2 className="text-2xl font-bold mb-4 text-blue-300 border-b-2 border-slate-600 pb-2">SOAL PILIHAN GANDA</h2>
@@ -88,7 +104,7 @@ export const ExamDisplay: React.FC<ExamDisplayProps> = ({ examData, isLoading, e
               <div className="mt-4">
                 <h3 className="text-xl font-semibold mb-2 text-teal-300">Essay</h3>
                 <ol className="list-decimal list-inside text-gray-300 space-y-3">
-                  {essays.map((essay, index) => <li key={essay.id}><strong>{index + 1}.</strong> {essay.answer}</li>)}
+                  {essays.map((essay, index) => <li key={essay.id}><strong>{index + 1 + mcqs.length}.</strong> {essay.answer}</li>)}
                 </ol>
               </div>
             )}

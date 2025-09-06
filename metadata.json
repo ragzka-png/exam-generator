@@ -1,5 +1,5 @@
 {
-  "name": "AI Exam Question Generator",
+  "name": "Mirage TestCrafter",
   "description": "An application to generate multiple-choice and essay exam questions in Indonesian from provided source material using the Gemini API.",
   "requestFramePermissions": []
 }
