@@ -89,7 +89,8 @@ ${difficultyDistribution}
 
 Urutan soal harus ${mcqCount} soal pilihan ganda terlebih dahulu, baru kemudian ${essayCount} soal essay.
 
-**Aturan Output:**
+**Aturan Penting & Format Output:**
+- **Kualitas Soal:** Hindari penggunaan frasa yang merujuk secara langsung ke materi sumber, seperti 'berdasarkan teks di atas' atau 'menurut sumber'. Soal harus dirumuskan agar dapat dipahami secara mandiri.
 - Kembalikan sebuah objek JSON tunggal yang valid dan sesuai dengan skema yang diberikan.
 - Jangan sertakan teks atau format markdown lain di luar objek JSON.
 - Untuk soal pilihan ganda, sediakan 5 opsi dan jawaban yang benar harus berupa huruf (A, B, C, D, atau E).
@@ -269,7 +270,8 @@ ${mainInstruction}
 **PENTING:** Soal yang baru HARUS BERBEDA dari soal yang sudah ada ini:
 "${questionToReplace.question}"
 
-**Aturan Output:**
+**Aturan Penting & Format Output:**
+- **Kualitas Soal:** Hindari penggunaan frasa yang merujuk secara langsung ke materi sumber, seperti 'berdasarkan teks di atas' atau 'menurut sumber'. Soal harus dirumuskan agar dapat dipahami secara mandiri.
 - Kembalikan sebuah objek JSON tunggal yang valid dan sesuai dengan skema yang diberikan.
 - Jangan sertakan teks atau format markdown lain di luar objek JSON.
   `;
